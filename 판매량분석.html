@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>판매량 분석</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:#f0f4f8;color:#1e293b;min-height:100vh}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px 20px}
+    .guide{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#c2410c;line-height:1.7}
+    .guide strong{font-weight:700}
+    .top-row{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;margin-bottom:20px}
+    @media(max-width:640px){.top-row{grid-template-columns:1fr}}
+    .upload-card{background:#fff;border-radius:14px;border:2px dashed #cbd5e1;padding:36px 24px;text-align:center;cursor:pointer;transition:.2s}
+    .upload-card:hover,.upload-card.over{border-color:#f97316;background:#fff7ed}
+    .upload-card.done{border-style:solid;border-color:#22c55e;background:#f0fdf4;padding:20px 24px}
+    .upload-card input{display:none}
+    .upload-card .ico{font-size:36px;margin-bottom:8px}
+    .upload-card h2{font-size:14px;font-weight:700;margin-bottom:4px}
+    .upload-card p{font-size:11px;color:#64748b;line-height:1.6}
+    .period-card{background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:18px 20px;min-width:220px}
+    .period-card h3{font-size:12px;font-weight:800;color:#475569;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+    .period-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+    .pbtn{padding:7px 14px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;color:#475569}
+    .pbtn:hover{border-color:#f97316;color:#f97316}
+    .pbtn.active{border-color:#f97316;background:#fff7ed;color:#ea580c}
+    .custom-row{display:flex;align-items:center;gap:6px}
+    .custom-row input{width:70px;padding:7px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;text-align:center;outline:none}
+    .custom-row input:focus{border-color:#f97316}
+    .custom-row span{font-size:12px;color:#64748b}
+    .period-note{font-size:11px;color:#94a3b8;margin-top:8px;line-height:1.5}
+    .info-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+    .info-chip{font-size:12px;padding:4px 12px;border-radius:20px;font-weight:600}
+    .ic-orange{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa}
+    .ic-green{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
+    .ic-blue{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe}
+    .ic-gray{background:#f8fafc;color:#64748b;border:1px solid #e2e8f0}
+    .stat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:18px}
+    .stat{background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px 14px}
+    .stat .lbl{font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+    .stat .val{font-size:21px;font-weight:800}
+    .stat .sub{font-size:10px;color:#94a3b8;margin-top:2px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .search{flex:1;min-width:180px;padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none}
+    .search:focus{border-color:#f97316}
+    select.flt{padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#fff;cursor:pointer}
+    .btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.15s;white-space:nowrap}
+    .btn-g{background:#22c55e;color:#fff}.btn-g:hover{background:#16a34a}
+    .btn-o{background:#fff;color:#475569;border:1px solid #e2e8f0}.btn-o:hover{background:#f8fafc}
+    .tbl-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
+    table{width:100%;border-collapse:collapse;background:#fff;font-size:13px}
+    thead tr{background:#1e293b}
+    th{padding:12px 14px;text-align:left;font-size:11px;font-weight:700;color:#94a3b8;white-space:nowrap;letter-spacing:.3px}
+    th.r{text-align:right}
+    th.srt{cursor:pointer;user-select:none}
+    th.srt:hover{background:#334155;color:#e2e8f0}
+    th .arr{margin-left:3px;opacity:.5;font-size:10px}
+    th.asc .arr::after{content:'▲'} th.desc .arr::after{content:'▼'}
+    th:not(.asc):not(.desc) .arr::after{content:'⇅'}
+    .th-actual{color:#a78bfa!important}
+    .th-avg{color:#94a3b8!important}
+    .th1{color:#f9a8d4!important} .th2{color:#fcd34d!important} .th3{color:#93c5fd!important}
+    tbody tr{border-bottom:1px solid #f1f5f9;transition:background .1s}
+    tbody tr:last-child{border-bottom:none}
+    tbody tr:hover{background:#f8fafc}
+    tbody tr.zero{opacity:.35}
+    td{padding:10px 14px;vertical-align:middle}
+    td.rk{text-align:center;font-size:12px;font-weight:800;color:#94a3b8;width:36px}
+    td.rk.top{color:#f59e0b}
+    td.nm{font-weight:600;max-width:300px}
+    td.nm .sub{font-size:11px;color:#94a3b8;font-weight:400;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+    td.r{text-align:right}
+    .num{font-size:14px;font-weight:700}
+    .num.z{color:#cbd5e1;font-size:13px;font-weight:400}
+    .num.sm{font-size:12px;color:#64748b}
+    .bar-w{margin-top:4px;height:4px;background:#f1f5f9;border-radius:99px;overflow:hidden}
+    .bar{height:100%;border-radius:99px}
+    .b1{background:#f472b6} .b2{background:#fbbf24} .b3{background:#60a5fa}
+    .empty-msg{text-align:center;padding:60px;color:#94a3b8;font-size:14px}
+    #resultArea{display:none}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="guide">
+    <strong>📋 사용 방법:</strong>
+    쿠팡 Wing → 통계 → <strong>상품별 판매량</strong>에서 원하는 기간으로 다운로드 후 업로드
+    → 다운받은 기간(일수)을 선택하면 <strong>로켓그로스 옵션만</strong> 일평균을 계산해 1달/2달/3달 판매량을 추산합니다.
+  </div>
+
+  <div class="top-row">
+    <div class="upload-card" id="dropzone"
+         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)"
+         onclick="if(!this.classList.contains('done'))document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="onFileChange(event)"/>
+      <div class="ico">📂</div>
+      <h2 id="uploadTitle">상품별 판매량 파일을 여기에 드래그하거나 클릭</h2>
+      <p>쿠팡 Wing → 통계 → 상품별 판매량 → 엑셀 다운로드</p>
+    </div>
+    <div class="period-card">
+      <h3>⏱ 다운받은 기간</h3>
+      <div class="period-btns">
+        <button class="pbtn" onclick="setPeriod(30,this)">30일</button>
+        <button class="pbtn" onclick="setPeriod(60,this)">60일</button>
+        <button class="pbtn active" onclick="setPeriod(90,this)">90일</button>
+      </div>
+      <div class="custom-row">
+        <input type="number" id="customDays" placeholder="직접입력" min="1" max="365" oninput="setPeriodCustom(this.value)"/>
+        <span>일</span>
+      </div>
+      <div class="period-note" id="periodNote">기준: 90일 → 일평균 × 30 / 60 / 90으로 추산</div>
+    </div>
+  </div>
+
+  <div id="resultArea">
+    <div class="info-bar" id="infoBar"></div>
+    <div class="stat-row" id="statRow"></div>
+    <div class="toolbar">
+      <input class="search" type="text" placeholder="🔍 옵션명 / 상품명 검색..." oninput="onSearch(this.value)"/>
+      <select class="flt" onchange="onFilter(this.value)">
+        <option value="all">전체 옵션</option>
+        <option value="sold">판매 있는 옵션만</option>
+        <option value="zero">판매 없는 옵션만</option>
+      </select>
+      <button class="btn btn-g" onclick="doExport()">⬇️ 엑셀 저장</button>
+      <button class="btn btn-o" onclick="resetAll()">🔄 다시 업로드</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:36px;text-align:center">#</th>
+          <th class="srt" onclick="doSort('opt')">옵션명 <span class="arr"></span></th>
+          <th class="srt r th-actual" onclick="doSort('actual')">실제 판매량 <span class="arr"></span></th>
+          <th class="r th-avg">일 평균</th>
+          <th class="srt r th1" onclick="doSort('m1')">1달 추산 <span class="arr"></span></th>
+          <th class="srt r th2" onclick="doSort('m2')">2달 추산 <span class="arr"></span></th>
+          <th class="srt r th3" onclick="doSort('m3')">3달 추산 <span class="arr"></span></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let rawData=[], analyzed=[], shown=[];
+let days=90;
+let srch='', filt='all', srt={key:'actual',asc:false};
+
+function onDragOver(e){e.preventDefault();document.getElementById('dropzone').classList.add('over')}
+function onDragLeave(){document.getElementById('dropzone').classList.remove('over')}
+function onDrop(e){e.preventDefault();onDragLeave();const f=e.dataTransfer.files[0];if(f)loadFile(f)}
+function onFileChange(e){if(e.target.files[0])loadFile(e.target.files[0])}
+
+function loadFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    if(rows.length<2){alert('데이터가 없습니다.');return;}
+    let hIdx=0,maxC=0;
+    for(let i=0;i<Math.min(10,rows.length);i++){
+      const c=rows[i].filter(v=>String(v).trim()!=='').length;
+      if(c>maxC){maxC=c;hIdx=i;}
+    }
+    const hdrs=rows[hIdx].map(h=>String(h).trim());
+    rawData=rows.slice(hIdx+1).filter(r=>r.some(v=>String(v).trim()!==''));
+    window.COL={
+      optId:findCol(hdrs,['옵션ID','옵션 ID']),
+      opt:  findCol(hdrs,['옵션명']),
+      prod: findCol(hdrs,['상품명','등록상품']),
+      type: findCol(hdrs,['판매방식']),
+      qty:  findCol(hdrs,['판매량']),
+    };
+    const rg=rawData.filter(r=>String(r[COL.type]).includes('로켓그로스')).length;
+    document.getElementById('uploadTitle').textContent=`✅ ${file.name} · 전체 ${rawData.length}행 (로켓그로스 ${rg}개)`;
+    document.getElementById('dropzone').classList.add('done');
+    analyze();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function findCol(hdrs,keys){
+  for(const k of keys){const i=hdrs.findIndex(h=>h.includes(k));if(i>=0)return i;}
+  return 0;
+}
+
+function setPeriod(d,btn){
+  days=d;
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('customDays').value='';
+  document.getElementById('periodNote').textContent=`기준: ${d}일 → 일평균 × 30 / 60 / 90으로 추산`;
+  if(rawData.length) analyze();
+}
+function setPeriodCustom(v){
+  const d=parseInt(v);if(!d||d<1)return;
+  days=d;
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('periodNote').textContent=`기준: ${d}일 → 일평균 × 30 / 60 / 90으로 추산`;
+  if(rawData.length) analyze();
+}
+
+function analyze(){
+  const rg=rawData.filter(r=>String(r[COL.type]).includes('로켓그로스'));
+  analyzed=rg.map(r=>{
+    const optId=String(r[COL.optId]||'').trim();
+    const opt=String(r[COL.opt]||'').trim();
+    const prod=String(r[COL.prod]||'').trim();
+    const actual=parseFloat(String(r[COL.qty]||'0').replace(/,/g,''))||0;
+    const dayAvg=actual/days;
+    return{optId,opt,prod,actual,dayAvg,m1:Math.round(dayAvg*30),m2:Math.round(dayAvg*60),m3:Math.round(dayAvg*90)};
+  }).filter(r=>r.opt);
+  renderInfo(); renderStats(); applyFilter();
+  document.getElementById('resultArea').style.display='block';
+}
+
+function renderInfo(){
+  const rg=analyzed.length, sold=analyzed.filter(r=>r.actual>0).length;
+  document.getElementById('infoBar').innerHTML=`
+    <span class="info-chip ic-orange">🚀 로켓그로스 ${rg}개 옵션</span>
+    <span class="info-chip ic-green">판매 발생 ${sold}개</span>
+    <span class="info-chip ic-blue">기준 기간 ${days}일</span>
+    <span class="info-chip ic-gray">일평균 × 30/60/90 추산</span>`;
+}
+
+function renderStats(){
+  const sum=k=>analyzed.reduce((s,r)=>s+(r[k]||0),0);
+  document.getElementById('statRow').innerHTML=`
+    <div class="stat"><div class="lbl">실제 총 판매량</div><div class="val" style="color:#7c3aed">${sum('actual').toLocaleString()}</div><div class="sub">${days}일간 로켓그로스</div></div>
+    <div class="stat"><div class="lbl" style="color:#be185d">1달 추산</div><div class="val" style="color:#be185d">${sum('m1').toLocaleString()}</div><div class="sub">일평균 × 30</div></div>
+    <div class="stat"><div class="lbl" style="color:#b45309">2달 추산</div><div class="val" style="color:#b45309">${sum('m2').toLocaleString()}</div><div class="sub">일평균 × 60</div></div>
+    <div class="stat"><div class="lbl" style="color:#1d4ed8">3달 추산</div><div class="val" style="color:#1d4ed8">${sum('m3').toLocaleString()}</div><div class="sub">일평균 × 90</div></div>`;
+}
+
+function onSearch(v){srch=v.toLowerCase();applyFilter();}
+function onFilter(v){filt=v;applyFilter();}
+function applyFilter(){
+  shown=analyzed.filter(r=>{
+    const ms=!srch||r.opt.toLowerCase().includes(srch)||r.prod.toLowerCase().includes(srch);
+    const mf=filt==='all'?true:filt==='sold'?r.actual>0:r.actual===0;
+    return ms&&mf;
+  });
+  applySort();
+}
+function doSort(k){
+  srt=srt.key===k?{key:k,asc:!srt.asc}:{key:k,asc:k==='opt'};
+  document.querySelectorAll('th.srt').forEach(th=>th.classList.remove('asc','desc'));
+  const idx={opt:1,actual:2,m1:4,m2:5,m3:6}[k];
+  if(idx!=null)document.querySelectorAll('th')[idx]?.classList.add(srt.asc?'asc':'desc');
+  applySort();
+}
+function applySort(){
+  const{key,asc}=srt;
+  shown.sort((a,b)=>{
+    const va=a[key]??-1,vb=b[key]??-1;
+    return typeof va==='string'?(asc?va.localeCompare(vb,'ko'):vb.localeCompare(va,'ko')):(asc?va-vb:vb-va);
+  });
+  render();
+}
+function render(){
+  const mx=k=>Math.max(...shown.map(r=>r[k]||0),1);
+  const mxA=mx('actual'),mx1=mx('m1'),mx2=mx('m2'),mx3=mx('m3');
+  document.getElementById('tbody').innerHTML=shown.map((r,i)=>{
+    const isZero=r.actual===0;
+    const rk=i<3&&!isZero?`<td class="rk top">${['🥇','🥈','🥉'][i]}</td>`:`<td class="rk">${i+1}</td>`;
+    const cell=(v,mxv,bc,showBar=true)=>`<td class="r">
+      <div class="num ${v===0?'z':''}">${v===0?'0':v.toLocaleString()}</div>
+      ${showBar?`<div class="bar-w"><div class="bar ${bc}" style="width:${Math.max(v/mxv*100,v>0?3:0)}%"></div></div>`:''}
+    </td>`;
+    return `<tr class="${isZero?'zero':''}">${rk}
+      <td class="nm">${r.opt}<div class="sub">${r.prod}</div></td>
+      ${cell(r.actual,mxA,'',false)}
+      <td class="r"><span class="num sm">${r.dayAvg.toFixed(2)}</span></td>
+      ${cell(r.m1,mx1,'b1')}${cell(r.m2,mx2,'b2')}${cell(r.m3,mx3,'b3')}
+    </tr>`;
+  }).join('')||`<tr><td colspan="7" class="empty-msg">검색 결과가 없습니다.</td></tr>`;
+}
+
+function doExport(){
+  const data=[
+    [`옵션명`,`상품명`,`실제 판매량(${days}일)`,`일 평균`,`1달 추산(30일)`,`2달 추산(60일)`,`3달 추산(90일)`],
+    ...shown.map(r=>[r.opt,r.prod,r.actual,parseFloat(r.dayAvg.toFixed(2)),r.m1,r.m2,r.m3])
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:50},{wch:40},{wch:14},{wch:10},{wch:13},{wch:13},{wch:13}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'로켓그로스판매량');
+  XLSX.writeFile(wb,`로켓그로스_판매량분석_${days}일_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+function resetAll(){
+  rawData=[];analyzed=[];shown=[];
+  document.getElementById('dropzone').classList.remove('done');
+  document.getElementById('uploadTitle').textContent='상품별 판매량 파일을 여기에 드래그하거나 클릭';
+  document.getElementById('resultArea').style.display='none';
+  document.getElementById('fileInput').value='';
+}
+</script>
+</body>
+</html>

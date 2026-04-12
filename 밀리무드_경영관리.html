@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>밀리무드 경영관리</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
+
+    /* ── 헤더 */
+    .hd{background:#1e293b;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;flex-shrink:0}
+    .hd-brand{display:flex;align-items:center;gap:12px}
+    .hd-logo{width:32px;height:32px;background:linear-gradient(135deg,#f97316,#ea580c);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+    .hd h1{font-size:16px;font-weight:800;color:#fff}
+    .hd p{font-size:10px;color:#64748b;margin-top:1px}
+    .hd-right{display:flex;align-items:center;gap:6px;font-size:11px;color:#64748b}
+    .hd-date{background:#334155;padding:4px 12px;border-radius:20px;font-size:11px;color:#94a3b8}
+
+    /* ── 탭 네비 */
+    .tab-nav{background:#1e293b;border-bottom:1px solid #334155;display:flex;padding:0 28px;flex-shrink:0}
+    .tab-btn{padding:12px 22px;font-size:13px;font-weight:700;color:#64748b;cursor:pointer;border:none;background:none;border-bottom:3px solid transparent;margin-bottom:-1px;transition:.15s;display:flex;align-items:center;gap:8px;white-space:nowrap}
+    .tab-btn:hover{color:#94a3b8;background:rgba(255,255,255,.03)}
+    .tab-btn.active{color:#f97316;border-bottom-color:#f97316;background:rgba(249,115,22,.05)}
+    .tab-icon{font-size:15px}
+
+    /* ── iframe 영역 */
+    .frame-wrap{flex:1;display:flex;flex-direction:column;position:relative}
+    .frame-pane{display:none;flex:1;flex-direction:column}
+    .frame-pane.active{display:flex}
+    iframe{flex:1;border:none;width:100%;background:#fff}
+
+    /* ── 로딩 */
+    .loading{position:absolute;inset:0;background:#f0f4f8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:10}
+    .loading.hide{display:none}
+    .spinner{width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#f97316;border-radius:50%;animation:spin .7s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading p{font-size:13px;color:#64748b}
+
+    /* ── 홈 화면 (탭 미선택 시) */
+    .home{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:40px 20px}
+    .home h2{font-size:22px;font-weight:800;color:#fff;margin-bottom:8px}
+    .home p{font-size:14px;color:#64748b;margin-bottom:40px}
+    .app-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;width:100%;max-width:800px}
+    .app-card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:24px;cursor:pointer;transition:.2s;text-align:center}
+    .app-card:hover{border-color:#f97316;background:#1a2537;transform:translateY(-2px);box-shadow:0 8px 24px rgba(249,115,22,.15)}
+    .app-card .icon{font-size:36px;margin-bottom:12px}
+    .app-card h3{font-size:15px;font-weight:800;color:#fff;margin-bottom:6px}
+    .app-card p{font-size:12px;color:#64748b;line-height:1.6}
+    .app-card .badge{display:inline-block;background:#f97316;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-top:10px}
+  </style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="hd">
+  <div class="hd-brand">
+    <div class="hd-logo">📊</div>
+    <div>
+      <h1>밀리무드 경영관리</h1>
+      <p>Millimood Business Management System</p>
+    </div>
+  </div>
+  <div class="hd-right">
+    <div class="hd-date" id="nowDate"></div>
+  </div>
+</div>
+
+<!-- 탭 네비 -->
+<div class="tab-nav">
+  <button class="tab-btn" id="btn-home" onclick="goHome()">
+    <span class="tab-icon">🏠</span> 홈
+  </button>
+  <button class="tab-btn" id="btn-sales" onclick="openTab('sales','판매량분석.html',this)">
+    <span class="tab-icon">📈</span> 판매량 분석
+  </button>
+  <button class="tab-btn" id="btn-stock" onclick="openTab('stock','입고계산.html',this)">
+    <span class="tab-icon">📦</span> 입고 계산
+  </button>
+  <button class="tab-btn" id="btn-inv" onclick="openTab('inv','재고관리.html',this)">
+    <span class="tab-icon">📋</span> 재고관리
+  </button>
+</div>
+
+<!-- 콘텐츠 영역 -->
+<div class="frame-wrap">
+
+  <!-- 홈 화면 -->
+  <div class="frame-pane active" id="pane-home">
+    <div class="home">
+      <h2>👋 안녕하세요, 밀리무드!</h2>
+      <p>아래 메뉴에서 원하는 기능을 선택하세요</p>
+      <div class="app-grid">
+        <div class="app-card" onclick="openTab('sales','판매량분석.html',document.getElementById('btn-sales'))">
+          <div class="icon">📈</div>
+          <h3>판매량 분석</h3>
+          <p>쿠팡 로켓그로스 옵션별 판매량 분석<br>일평균 · 1달/2달/3달 추산</p>
+          <div class="badge">로켓그로스 전용</div>
+        </div>
+        <div class="app-card" onclick="openTab('stock','입고계산.html',document.getElementById('btn-stock'))">
+          <div class="icon">📦</div>
+          <h3>입고 계산</h3>
+          <p>재고현황 파일 업로드<br>2주 목표 대비 입고 필요 수량 계산</p>
+          <div class="badge">재고 조회 즉시 가능</div>
+        </div>
+        <div class="app-card" onclick="openTab('inv','재고관리.html',document.getElementById('btn-inv'))">
+          <div class="icon">📋</div>
+          <h3>재고관리</h3>
+          <p>품명·색상별 재고표 편집<br>출고 엑셀 업로드 → 재고 차감 승인</p>
+          <div class="badge">단가·금액 자동계산</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 판매량 분석 iframe -->
+  <div class="frame-pane" id="pane-sales">
+    <div class="loading" id="loading-sales">
+      <div class="spinner"></div>
+      <p>판매량 분석 로딩 중...</p>
+    </div>
+    <iframe id="frame-sales" src="about:blank" onload="onFrameLoad('sales')"></iframe>
+  </div>
+
+  <!-- 입고 계산 iframe -->
+  <div class="frame-pane" id="pane-stock">
+    <div class="loading" id="loading-stock">
+      <div class="spinner"></div>
+      <p>입고 계산 로딩 중...</p>
+    </div>
+    <iframe id="frame-stock" src="about:blank" onload="onFrameLoad('stock')"></iframe>
+  </div>
+
+  <!-- 재고관리 iframe -->
+  <div class="frame-pane" id="pane-inv">
+    <div class="loading" id="loading-inv">
+      <div class="spinner"></div>
+      <p>재고관리 로딩 중...</p>
+    </div>
+    <iframe id="frame-inv" src="about:blank" onload="onFrameLoad('inv')"></iframe>
+  </div>
+
+</div>
+
+<script>
+// 날짜 표시
+const now = new Date();
+document.getElementById('nowDate').textContent =
+  now.getFullYear()+'년 '+(now.getMonth()+1)+'월 '+now.getDate()+'일 ('+['일','월','화','수','목','금','토'][now.getDay()]+')';
+
+// 로드 상태 추적
+const loaded = {sales:false, stock:false, inv:false};
+let currentTab = 'home';
+
+function openTab(id, src, btn){
+  // 패널 전환
+  document.querySelectorAll('.frame-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pane-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  currentTab = id;
+
+  // iframe 최초 로드
+  if(!loaded[id]){
+    document.getElementById('loading-'+id).classList.remove('hide');
+    document.getElementById('frame-'+id).src = src;
+    loaded[id] = true;
+  }
+}
+
+function onFrameLoad(id){
+  // about:blank 로드는 무시
+  const frame = document.getElementById('frame-'+id);
+  if(frame.src === 'about:blank' || frame.contentDocument?.URL === 'about:blank') return;
+  document.getElementById('loading-'+id).classList.add('hide');
+}
+
+function goHome(){
+  document.querySelectorAll('.frame-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pane-home').classList.add('active');
+  document.getElementById('btn-home').classList.add('active');
+  currentTab = 'home';
+}
+
+// 홈 버튼 초기 활성화
+document.getElementById('btn-home').classList.add('active');
+</script>
+</body>
+</html>

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>입고 계산</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:#f0f4f8;color:#1e293b;min-height:100vh}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px 20px}
+    .guide{border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;line-height:1.7}
+    .guide strong{font-weight:700}
+    .guide-orange{background:#fff7ed;border:1px solid #fed7aa;color:#c2410c}
+    .guide-blue{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+    .notice{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:28px;text-align:center;color:#94a3b8;font-size:13px;margin-bottom:20px}
+    .notice .ico{font-size:32px;margin-bottom:10px}
+    .notice strong{display:block;font-size:15px;color:#475569;margin-bottom:6px}
+    .stock-top-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+    @media(max-width:640px){.stock-top-row{grid-template-columns:1fr}}
+    /* 판매량 파일 업로드 영역 */
+    .sales-upload-wrap{margin-bottom:20px}
+    .upload-card{background:#fff;border-radius:14px;border:2px dashed #cbd5e1;padding:28px 24px;text-align:center;cursor:pointer;transition:.2s}
+    .upload-card:hover,.upload-card.over{border-color:#f97316;background:#fff7ed}
+    .upload-card.done{border-style:solid;border-color:#22c55e;background:#f0fdf4;padding:16px 24px;cursor:default}
+    .upload-card.blue-done{border-color:#3b82f6;background:#eff6ff}
+    .upload-card input{display:none}
+    .upload-card .ico{font-size:32px;margin-bottom:6px}
+    .upload-card h2{font-size:13px;font-weight:700;margin-bottom:3px}
+    .upload-card p{font-size:11px;color:#64748b;line-height:1.5}
+    .map-card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px 18px;margin-bottom:16px}
+    .map-card h4{font-size:12px;font-weight:800;color:#475569;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+    .map-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media(max-width:500px){.map-grid{grid-template-columns:1fr}}
+    .map-item label{font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px}
+    .map-item select{width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;outline:none;background:#fff;cursor:pointer}
+    .map-item select:focus{border-color:#3b82f6}
+    .info-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+    .info-chip{font-size:12px;padding:4px 12px;border-radius:20px;font-weight:600}
+    .ic-orange{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa}
+    .ic-green{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
+    .ic-blue{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe}
+    .ic-red{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+    .ic-gray{background:#f8fafc;color:#64748b;border:1px solid #e2e8f0}
+    .stat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:18px}
+    .stat{background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px 14px}
+    .stat .lbl{font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+    .stat .val{font-size:21px;font-weight:800}
+    .stat .sub{font-size:10px;color:#94a3b8;margin-top:2px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .search{flex:1;min-width:180px;padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none}
+    .search:focus{border-color:#f97316}
+    select.flt{padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#fff;cursor:pointer}
+    .btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.15s;white-space:nowrap}
+    .btn-g{background:#22c55e;color:#fff}.btn-g:hover{background:#16a34a}
+    .btn-b{background:#3b82f6;color:#fff}.btn-b:hover{background:#2563eb}
+    .btn-o{background:#fff;color:#475569;border:1px solid #e2e8f0}.btn-o:hover{background:#f8fafc}
+    .tbl-wrap{overflow-x:auto;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
+    table{width:100%;border-collapse:collapse;background:#fff;font-size:13px}
+    thead tr{background:#1e293b}
+    th{padding:12px 14px;text-align:left;font-size:11px;font-weight:700;color:#94a3b8;white-space:nowrap;letter-spacing:.3px}
+    th.r{text-align:right}
+    th.srt{cursor:pointer;user-select:none}
+    th.srt:hover{background:#334155;color:#e2e8f0}
+    th .arr{margin-left:3px;opacity:.5;font-size:10px}
+    th.asc .arr::after{content:'▲'} th.desc .arr::after{content:'▼'}
+    th:not(.asc):not(.desc) .arr::after{content:'⇅'}
+    .th-cur{color:#6ee7b7!important}
+    .th-target{color:#fcd34d!important}
+    .th-need{color:#f87171!important}
+    tbody tr{border-bottom:1px solid #f1f5f9;transition:background .1s}
+    tbody tr:last-child{border-bottom:none}
+    tbody tr:hover{background:#f8fafc}
+    tbody tr.ok-row{background:#f0fdf4}
+    td{padding:10px 14px;vertical-align:middle}
+    td.rk{text-align:center;font-size:12px;font-weight:800;color:#94a3b8;width:36px}
+    td.rk.top{color:#f59e0b}
+    td.nm{font-weight:600;max-width:300px}
+    td.r{text-align:right}
+    .num{font-size:14px;font-weight:700}
+    .num.z{color:#cbd5e1;font-size:13px;font-weight:400}
+    .num.sm{font-size:12px;color:#64748b}
+    .bar-w{margin-top:4px;height:4px;background:#f1f5f9;border-radius:99px;overflow:hidden}
+    .bar{height:100%;border-radius:99px}
+    .b-need{background:#f87171}
+    .tag{display:inline-block;font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px}
+    .tag-need{background:#fef2f2;color:#dc2626}
+    .tag-ok{background:#f0fdf4;color:#16a34a}
+    .tag-zero{background:#f8fafc;color:#94a3b8}
+    .empty-msg{text-align:center;padding:60px;color:#94a3b8;font-size:14px}
+    #stockResultArea{display:none}
+    /* 판매량 파일 업로드 영역 스타일 */
+    .period-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+    .pbtn{padding:6px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;color:#475569}
+    .pbtn:hover{border-color:#f97316;color:#f97316}
+    .pbtn.active{border-color:#f97316;background:#fff7ed;color:#ea580c}
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 1단계: 판매량 파일 (선택사항) -->
+  <div class="guide guide-orange" style="margin-bottom:12px">
+    <strong>📋 1단계 (선택):</strong>
+    판매량 파일을 먼저 올리면 <strong>일평균 × 14일(2주 목표)</strong> 기반 입고 필요 수량까지 계산됩니다.
+    재고현황 파일만 올려도 현재 재고 조회는 바로 가능합니다.
+  </div>
+
+  <div class="sales-upload-wrap">
+    <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start">
+      <div class="upload-card" id="salesDropzone"
+           onclick="if(!this.classList.contains('done'))document.getElementById('salesFileInput').click()"
+           ondragover="onSalesDragOver(event)" ondragleave="onSalesDragLeave(event)" ondrop="onSalesDrop(event)">
+        <input type="file" id="salesFileInput" accept=".xlsx,.xls,.csv" onchange="onSalesFileChange(event)"/>
+        <div class="ico">📈</div>
+        <h2 id="salesUploadTitle">【선택】 판매량 파일 업로드</h2>
+        <p>쿠팡 Wing → 통계 → 상품별 판매량 → 엑셀 다운로드</p>
+      </div>
+      <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:14px 16px;min-width:180px">
+        <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:8px">⏱ 다운받은 기간</div>
+        <div class="period-btns">
+          <button class="pbtn" onclick="setSalesPeriod(30,this)">30일</button>
+          <button class="pbtn" onclick="setSalesPeriod(60,this)">60일</button>
+          <button class="pbtn active" onclick="setSalesPeriod(90,this)">90일</button>
+        </div>
+        <div style="font-size:10px;color:#94a3b8" id="salesPeriodNote">기준: 90일</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2단계: 재고현황 파일 -->
+  <div class="guide guide-blue" style="margin-bottom:12px">
+    <strong>📋 2단계:</strong>
+    현재 재고현황 파일을 업로드하면 옵션별 재고 현황을 확인하고, 판매량 데이터가 있으면 입고 필요 수량까지 자동 계산합니다.
+  </div>
+
+  <div class="stock-top-row">
+    <div class="upload-card" id="stockDropzone"
+         onclick="if(!this.classList.contains('done'))document.getElementById('stockFileInput').click()"
+         ondragover="onStockDragOver(event)" ondragleave="onStockDragLeave(event)" ondrop="onStockDrop(event)">
+      <input type="file" id="stockFileInput" accept=".xlsx,.xls,.csv" onchange="onStockFileChange(event)"/>
+      <div class="ico">📋</div>
+      <h2 id="stockUploadTitle">재고현황 파일을 드래그하거나 클릭</h2>
+      <p>옵션명 + 현재 재고수량이 포함된 엑셀 파일</p>
+    </div>
+    <div id="stockMapCard" class="map-card" style="display:none">
+      <h4>🗂 컬럼 설정</h4>
+      <div class="map-grid">
+        <div class="map-item">
+          <label>🔑 옵션 ID 컬럼 <span style="color:#f97316;font-weight:700">(매칭 기준)</span></label>
+          <select id="mapOptId" onchange="runStockCalc()"><option value="-1">사용 안 함 (옵션명으로 매칭)</option></select>
+        </div>
+        <div class="map-item">
+          <label>옵션명 컬럼</label>
+          <select id="mapOpt" onchange="runStockCalc()"></select>
+        </div>
+        <div class="map-item">
+          <label>판매가능재고 컬럼</label>
+          <select id="mapQty" onchange="runStockCalc()"></select>
+        </div>
+        <div class="map-item">
+          <label>입고예정재고 컬럼 <span style="color:#94a3b8;font-weight:400">(선택)</span></label>
+          <select id="mapIncoming" onchange="runStockCalc()"><option value="-1">사용 안 함</option></select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="stockResultArea">
+    <div class="info-bar" id="stockInfoBar"></div>
+    <div class="stat-row" id="stockStatRow"></div>
+    <div class="toolbar">
+      <input class="search" type="text" placeholder="🔍 옵션명 검색..." oninput="onStockSearch(this.value)"/>
+      <select class="flt" onchange="onStockFilter(this.value)">
+        <option value="all">전체 옵션</option>
+        <option value="need">입고 필요만</option>
+        <option value="ok">재고 충분만</option>
+        <option value="nomatch">미매칭 옵션</option>
+      </select>
+      <button class="btn btn-b" onclick="doStockExport()">⬇️ 엑셀 저장</button>
+      <button class="btn btn-o" onclick="resetStock()">🔄 재고파일 재업로드</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:36px;text-align:center">#</th>
+          <th class="srt" onclick="doStockSort('opt')">옵션명 <span class="arr"></span></th>
+          <th class="srt r th-cur" onclick="doStockSort('curStock')">판매가능재고 <span class="arr"></span></th>
+          <th class="srt r" style="color:#a5f3fc!important" onclick="doStockSort('incoming')">입고예정재고 <span class="arr"></span></th>
+          <th class="r th-target">2주 목표</th>
+          <th class="r">일 평균</th>
+          <th class="srt r th-need" onclick="doStockSort('needed')">입고 필요 수량 <span class="arr"></span></th>
+          <th class="r">상태</th>
+        </tr></thead>
+        <tbody id="stockTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 전역
+let analyzed = [];  // 판매량 분석 데이터 (선택사항)
+let salesDays = 90;
+let rawData = [], stockRawData = [], stockHeaders = [], stockAnalyzed = [], stockShown = [];
+let stockSrch = '', stockFilt = 'all', stockSrt = {key:'needed', asc:false};
+
+// ── 판매량 파일 업로드 (선택)
+function onSalesDragOver(e){e.preventDefault();document.getElementById('salesDropzone').classList.add('over')}
+function onSalesDragLeave(){document.getElementById('salesDropzone').classList.remove('over')}
+function onSalesDrop(e){e.preventDefault();onSalesDragLeave();const f=e.dataTransfer.files[0];if(f)loadSalesFile(f)}
+function onSalesFileChange(e){if(e.target.files[0])loadSalesFile(e.target.files[0])}
+
+function setSalesPeriod(d, btn){
+  salesDays = d;
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('salesPeriodNote').textContent = '기준: '+d+'일';
+  if(rawData.length) analyzeSales();
+}
+
+function loadSalesFile(file){
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    if(rows.length < 2){alert('데이터가 없습니다.');return;}
+    let hIdx=0, maxC=0;
+    for(let i=0;i<Math.min(10,rows.length);i++){
+      const c=rows[i].filter(v=>String(v).trim()!=='').length;
+      if(c>maxC){maxC=c;hIdx=i;}
+    }
+    const hdrs = rows[hIdx].map(h=>String(h).trim());
+    rawData = rows.slice(hIdx+1).filter(r=>r.some(v=>String(v).trim()!==''));
+    window.SCOL = {
+      optId: findCol(hdrs,['옵션ID','옵션 ID']),
+      opt:   findCol(hdrs,['옵션명']),
+      type:  findCol(hdrs,['판매방식']),
+      qty:   findCol(hdrs,['판매량']),
+    };
+    const rg = rawData.filter(r=>String(r[SCOL.type]).includes('로켓그로스')).length;
+    document.getElementById('salesUploadTitle').textContent = `✅ ${file.name} · 로켓그로스 ${rg}개`;
+    document.getElementById('salesDropzone').classList.add('done');
+    analyzeSales();
+    if(stockRawData.length) runStockCalc();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function analyzeSales(){
+  const rg = rawData.filter(r=>String(r[SCOL.type]).includes('로켓그로스'));
+  analyzed = rg.map(r=>{
+    const optId = String(r[SCOL.optId]||'').trim();
+    const opt   = String(r[SCOL.opt]||'').trim();
+    const actual = parseFloat(String(r[SCOL.qty]||'0').replace(/,/g,''))||0;
+    return {optId, opt, actual, dayAvg: actual/salesDays};
+  }).filter(r=>r.opt);
+}
+
+function findCol(hdrs, keys){
+  for(const k of keys){const i=hdrs.findIndex(h=>h.includes(k));if(i>=0)return i;}
+  return 0;
+}
+
+// ── 재고현황 파일 업로드
+function onStockDragOver(e){e.preventDefault();document.getElementById('stockDropzone').classList.add('over')}
+function onStockDragLeave(){document.getElementById('stockDropzone').classList.remove('over')}
+function onStockDrop(e){e.preventDefault();onStockDragLeave();const f=e.dataTransfer.files[0];if(f)loadStockFile(f)}
+function onStockFileChange(e){if(e.target.files[0])loadStockFile(e.target.files[0])}
+
+function loadStockFile(file){
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    if(rows.length < 2){alert('데이터가 없습니다.');return;}
+    let hIdx = -1;
+    const hkw = ['옵션명','옵션 ID','판매가능재고','SKU'];
+    for(let i=0;i<Math.min(10,rows.length);i++){
+      if(hkw.some(k=>rows[i].map(v=>String(v)).join('|').includes(k))){hIdx=i;break;}
+    }
+    if(hIdx<0){let maxC=0;for(let i=0;i<Math.min(10,rows.length);i++){const c=rows[i].filter(v=>String(v).trim()!=='').length;if(c>maxC){maxC=c;hIdx=i;}}}
+    stockHeaders = rows[hIdx].map(h=>String(h).replace(/\n/g,' ').trim());
+    let dataStart = hIdx+1;
+    while(dataStart<rows.length){
+      if(rows[dataStart].some(v=>!isNaN(parseFloat(String(v)))&&String(v).trim()!==''))break;
+      dataStart++;
+    }
+    stockRawData = rows.slice(dataStart).filter(r=>r.some(v=>String(v).trim()!==''));
+    document.getElementById('stockUploadTitle').textContent = `✅ ${file.name} · ${stockRawData.length}개 옵션`;
+    document.getElementById('stockDropzone').classList.add('done','blue-done');
+    buildColumnSelects();
+    document.getElementById('stockMapCard').style.display = 'block';
+    runStockCalc();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function buildColumnSelects(){
+  const optIdSel=document.getElementById('mapOptId'), optSel=document.getElementById('mapOpt');
+  const qtySel=document.getElementById('mapQty'), incSel=document.getElementById('mapIncoming');
+  optIdSel.innerHTML='<option value="-1">사용 안 함 (옵션명으로 매칭)</option>';
+  optSel.innerHTML=''; qtySel.innerHTML='';
+  incSel.innerHTML='<option value="-1">사용 안 함</option>';
+  stockHeaders.forEach((h,i)=>{
+    const label=`[${i}] ${h||'(빈 열)'}`;
+    optIdSel.appendChild(new Option(label,i));
+    optSel.appendChild(new Option(label,i));
+    qtySel.appendChild(new Option(label,i));
+    incSel.appendChild(new Option(label,i));
+  });
+  const optIdIdx=stockHeaders.findIndex(h=>h.includes('옵션 ID')||h.includes('옵션ID'));
+  const optIdx=stockHeaders.findIndex(h=>h.includes('옵션명'));
+  const qtyIdx=stockHeaders.findIndex(h=>h.includes('판매가능재고'));
+  const incIdx=stockHeaders.findIndex(h=>h.includes('입고예정'));
+  optIdSel.value=optIdIdx>=0?optIdIdx:-1;
+  optSel.value=optIdx>=0?optIdx:findColIdx(stockHeaders,['옵션명','옵션','option']);
+  qtySel.value=qtyIdx>=0?qtyIdx:findColIdx(stockHeaders,['재고','수량','stock','qty']);
+  incSel.value=incIdx>=0?incIdx:-1;
+}
+
+function findColIdx(hdrs,keys){
+  for(const k of keys){const i=hdrs.findIndex(h=>h.toLowerCase().includes(k.toLowerCase()));if(i>=0)return i;}
+  return 0;
+}
+
+function runStockCalc(){
+  if(!stockRawData.length) return;
+  const optIdColRaw=document.getElementById('mapOptId').value;
+  const optIdCol=parseInt(optIdColRaw), useOptId=optIdColRaw!=='-1'&&optIdCol>=0;
+  const optCol=parseInt(document.getElementById('mapOpt').value);
+  const qtyCol=parseInt(document.getElementById('mapQty').value);
+  const incColRaw=document.getElementById('mapIncoming').value;
+  const incCol=parseInt(incColRaw), useIncoming=incColRaw!=='-1'&&incCol>=0;
+
+  const salesById={}, salesByName={};
+  analyzed.forEach(r=>{
+    if(r.optId) salesById[String(r.optId).trim()]=r;
+    salesByName[normalize(r.opt)]=r;
+  });
+
+  stockAnalyzed = stockRawData.map(row=>{
+    const opt=String(row[optCol]||'').trim();
+    const stockOptId=useOptId?String(row[optIdCol]||'').trim():'';
+    const curStock=parseFloat(String(row[qtyCol]||'0').replace(/,/g,''))||0;
+    const incoming=useIncoming?(parseFloat(String(row[incCol]||'0').replace(/,/g,''))||0):0;
+    let sales=null, matchBy='none';
+    if(stockOptId&&salesById[stockOptId]){sales=salesById[stockOptId];matchBy='id';}
+    else {const nk=normalize(opt);if(nk&&salesByName[nk]){sales=salesByName[nk];matchBy='name';}}
+    const dayAvg=sales?sales.dayAvg:null;
+    const target2w=sales?Math.ceil(sales.dayAvg*14):null;
+    const effective=curStock+incoming;
+    const needed=sales?Math.max(0,target2w-effective):null;
+    return{opt,stockOptId,curStock,incoming,dayAvg,target2w,needed,matched:!!sales,matchBy};
+  }).filter(r=>r.opt);
+
+  const needCount=stockAnalyzed.filter(r=>r.matched&&r.needed>0).length;
+  renderStockInfo(); renderStockStats(); applyStockFilter();
+  document.getElementById('stockResultArea').style.display='block';
+}
+
+function normalize(s){return s.toLowerCase().replace(/\s+/g,'').replace(/[^\w가-힣]/g,'');}
+
+function renderStockInfo(){
+  const total=stockAnalyzed.length, matched=stockAnalyzed.filter(r=>r.matched).length;
+  const byId=stockAnalyzed.filter(r=>r.matchBy==='id').length;
+  const byName=stockAnalyzed.filter(r=>r.matchBy==='name').length;
+  const needCount=stockAnalyzed.filter(r=>r.matched&&r.needed>0).length;
+  const okCount=stockAnalyzed.filter(r=>r.matched&&r.needed===0).length;
+  const hasSales=analyzed.length>0;
+  document.getElementById('stockInfoBar').innerHTML=`
+    <span class="info-chip ic-blue">📋 재고현황 ${total}개 옵션</span>
+    ${hasSales?`<span class="info-chip ic-green">매칭 성공 ${matched}개</span>
+    <span class="info-chip ic-red">⚠️ 입고 필요 ${needCount}개</span>
+    <span class="info-chip ic-green">✅ 충분 ${okCount}개</span>
+    <span class="info-chip ic-gray">기준: 일평균 × 14일(2주)</span>`
+    :`<span class="info-chip ic-gray">판매량 파일 없음 — 재고 조회만 가능</span>`}`;
+}
+
+function renderStockStats(){
+  const matched=stockAnalyzed.filter(r=>r.matched);
+  const needItems=matched.filter(r=>r.needed>0);
+  const totalNeeded=needItems.reduce((s,r)=>s+r.needed,0);
+  const totalCur=stockAnalyzed.reduce((s,r)=>s+r.curStock,0);
+  const totalIncoming=stockAnalyzed.reduce((s,r)=>s+r.incoming,0);
+  const hasSales=analyzed.length>0;
+  document.getElementById('stockStatRow').innerHTML=`
+    <div class="stat"><div class="lbl">총 재고 옵션</div><div class="val" style="color:#0891b2">${stockAnalyzed.length}</div><div class="sub">전체 옵션 수</div></div>
+    <div class="stat"><div class="lbl">판매가능재고 합산</div><div class="val" style="color:#0891b2">${totalCur.toLocaleString()}</div><div class="sub">전체 합산</div></div>
+    ${totalIncoming>0?`<div class="stat"><div class="lbl">입고예정 합산</div><div class="val" style="color:#0e7490">${totalIncoming.toLocaleString()}</div><div class="sub">입고예정재고 합계</div></div>`:''}
+    ${hasSales?`<div class="stat"><div class="lbl">입고 필요 옵션</div><div class="val" style="color:#dc2626">${needItems.length}<span style="font-size:14px;color:#94a3b8">개</span></div><div class="sub">2주 목표 미달</div></div>
+    <div class="stat"><div class="lbl">총 입고 필요량</div><div class="val" style="color:#dc2626">${totalNeeded.toLocaleString()}</div><div class="sub">부족분 합산</div></div>`:''}`;
+}
+
+function onStockSearch(v){stockSrch=v.toLowerCase();applyStockFilter();}
+function onStockFilter(v){stockFilt=v;applyStockFilter();}
+function applyStockFilter(){
+  stockShown=stockAnalyzed.filter(r=>{
+    const ms=!stockSrch||r.opt.toLowerCase().includes(stockSrch);
+    const mf=stockFilt==='all'?true:stockFilt==='need'?(r.matched&&r.needed>0):stockFilt==='ok'?(r.matched&&r.needed===0):stockFilt==='nomatch'?!r.matched:true;
+    return ms&&mf;
+  });
+  applyStockSort();
+}
+function doStockSort(k){
+  stockSrt=stockSrt.key===k?{key:k,asc:!stockSrt.asc}:{key:k,asc:k==='opt'};
+  document.querySelectorAll('th.srt').forEach(th=>th.classList.remove('asc','desc'));
+  const idx={opt:1,curStock:2,incoming:3,needed:6}[k];
+  if(idx!=null)document.querySelectorAll('th')[idx]?.classList.add(stockSrt.asc?'asc':'desc');
+  applyStockSort();
+}
+function applyStockSort(){
+  const{key,asc}=stockSrt;
+  stockShown.sort((a,b)=>{const va=a[key]??-1,vb=b[key]??-1;return typeof va==='string'?(asc?va.localeCompare(vb,'ko'):vb.localeCompare(va,'ko')):(asc?va-vb:vb-va);});
+  renderStock();
+}
+function renderStock(){
+  const hasSales=analyzed.length>0;
+  const mxN=Math.max(...stockShown.filter(r=>r.matched).map(r=>r.needed||0),1);
+  document.getElementById('stockTbody').innerHTML=stockShown.map((r,i)=>{
+    const isNeed=r.matched&&r.needed>0, isOk=r.matched&&r.needed===0;
+    const tag=!r.matched?`<span class="tag tag-zero">미매칭</span>`:isNeed?`<span class="tag tag-need">⚠️ 입고 필요</span>`:`<span class="tag tag-ok">✅ 충분</span>`;
+    const rk=isNeed&&i<3?`<td class="rk top">${['🥇','🥈','🥉'][i]}</td>`:`<td class="rk">${i+1}</td>`;
+    const curTd=`<td class="r"><div class="num">${r.curStock.toLocaleString()}</div></td>`;
+    const incTd=`<td class="r"><div class="num sm" style="color:${r.incoming>0?'#0e7490':'#cbd5e1'}">${r.incoming>0?r.incoming.toLocaleString():'0'}</div></td>`;
+    const targetTd=r.matched?`<td class="r"><div class="num sm">${r.target2w.toLocaleString()}</div></td>`:`<td class="r"><div class="num z">-</div></td>`;
+    const avgTd=r.matched?`<td class="r"><div class="num sm">${r.dayAvg.toFixed(2)}</div></td>`:`<td class="r"><div class="num z">-</div></td>`;
+    let needTd;
+    if(!r.matched||!hasSales){needTd=`<td class="r"><div class="num z">-</div></td>`;}
+    else if(r.needed===0){needTd=`<td class="r"><div class="num" style="color:#22c55e">0</div></td>`;}
+    else{const pct=Math.max(r.needed/mxN*100,3);needTd=`<td class="r"><div class="num" style="color:#dc2626">${r.needed.toLocaleString()}</div><div class="bar-w"><div class="bar b-need" style="width:${pct}%"></div></div></td>`;}
+    return `<tr class="${isOk?'ok-row':''}">${rk}<td class="nm">${r.opt}</td>${curTd}${incTd}${targetTd}${avgTd}${needTd}<td>${tag}</td></tr>`;
+  }).join('')||`<tr><td colspan="8" class="empty-msg">해당하는 옵션이 없습니다.</td></tr>`;
+}
+
+function doStockExport(){
+  const data=[['옵션명','판매가능재고','입고예정재고','2주 목표 재고','일 평균','입고 필요 수량','상태'],
+    ...stockShown.map(r=>[r.opt,r.curStock,r.incoming,r.matched?r.target2w:'-',r.matched?parseFloat(r.dayAvg.toFixed(2)):'-',r.matched?r.needed:'-',!r.matched?'미매칭':r.needed>0?'입고 필요':'충분'])];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:50},{wch:14},{wch:14},{wch:14},{wch:10},{wch:14},{wch:10}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'입고계산');
+  XLSX.writeFile(wb,`입고계산_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function resetStock(){
+  stockRawData=[];stockHeaders=[];stockAnalyzed=[];stockShown=[];
+  document.getElementById('stockDropzone').classList.remove('done','blue-done');
+  document.getElementById('stockUploadTitle').textContent='재고현황 파일을 드래그하거나 클릭';
+  document.getElementById('stockResultArea').style.display='none';
+  document.getElementById('stockMapCard').style.display='none';
+  document.getElementById('stockFileInput').value='';
+}
+</script>
+</body>
+</html>
