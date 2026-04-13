@@ -160,11 +160,13 @@ function openTab(id, src, btn){
   if(btn) btn.classList.add('active');
   currentTab = id;
 
-  // iframe 최초 로드
-  if(!loaded[id]){
+  // 항상 최신 버전 로드 (캐시 방지 — 타임스탬프를 분 단위로 붙여서 1분마다 갱신)
+  const v = Math.floor(Date.now() / 60000); // 1분 단위 캐시 버스팅
+  const frame = document.getElementById('frame-'+id);
+  const newSrc = src + '?v=' + v;
+  if(frame.src !== newSrc){
     document.getElementById('loading-'+id).classList.remove('hide');
-    document.getElementById('frame-'+id).src = src;
-    loaded[id] = true;
+    frame.src = newSrc;
   }
 }
 
