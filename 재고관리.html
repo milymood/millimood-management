@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>밀리무드 재고관리</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;background:#f0f2f5;color:#1e293b;min-height:100vh}
@@ -146,6 +147,7 @@ table.inv th,table.inv td{border:1px solid #e2e8f0;padding:0;white-space:nowrap}
   <div><h1>&#128202; 밀리무드 재고관리</h1><p>재고표 편집 · 출고 차감 · 단가 자동계산</p></div>
   <div class="hd-right">
     <span class="save-time" id="lastSaveTime"></span>
+    <button class="btn btn-dark" onclick="openMappingMgr()">&#128101; 매핑 관리</button>
     <button class="btn btn-dark" onclick="importCfg()">&#128194; 불러오기</button>
     <button class="btn btn-o" onclick="exportCfg()">&#128190; 저장</button>
     <button class="btn btn-g" onclick="exportExcel()">&#11015;&#65039; 엑셀</button>
@@ -331,6 +333,31 @@ table.inv th,table.inv td{border:1px solid #e2e8f0;padding:0;white-space:nowrap}
     <p id="dupDesc" style="font-size:12px;color:#64748b;margin-bottom:10px"></p>
     <div id="dupList" style="margin-bottom:10px"></div>
     <div class="modal-btns"><button class="btn btn-o" onclick="closeDupModal()">확인</button></div>
+  </div>
+</div>
+
+<!-- 매핑 관리 모달 -->
+<div class="modal-bg" id="mappingModal">
+  <div class="modal" style="width:560px;max-height:80vh;display:flex;flex-direction:column">
+    <h3>&#128101; 매핑 학습 관리</h3>
+    <p style="font-size:11px;color:#64748b;margin-bottom:12px">출고 파일에서 한번 지정한 옵션↔재고표 연결이 저장됩니다. 잘못된 매핑은 여기서 수정/삭제하세요.</p>
+    <div style="flex:1;overflow-y:auto;margin-bottom:12px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px" id="mappingTable">
+        <thead>
+          <tr style="background:#f8fafc">
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:11px">출고 옵션명</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:11px">매핑된 재고표 항목</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:11px;width:60px">삭제</th>
+          </tr>
+        </thead>
+        <tbody id="mappingBody"></tbody>
+      </table>
+      <div id="mappingEmpty" style="padding:30px;text-align:center;color:#94a3b8;font-size:12px;display:none">저장된 매핑이 없습니다</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <button class="btn btn-red" onclick="clearAllMapping()" style="font-size:11px;padding:6px 12px">&#128465; 전체 삭제</button>
+      <button class="btn btn-o" onclick="closeMappingMgr()">닫기</button>
+    </div>
   </div>
 </div>
 
@@ -702,7 +729,111 @@ function autoLoad(){
     if(lm) learnedMap=JSON.parse(lm);
   }catch(e){}
 }
-function saveLM(){ try{ localStorage.setItem('millimood_lm',JSON.stringify(learnedMap)); }catch(e){} }
+// ============================================================
+// Supabase 설정
+// ============================================================
+var SUPA_URL = 'https://cckzzchvfwkoahfkbmnf.supabase.co';
+var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNja3p6Y2h2Zndrb2FoZmtibW5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5ODI3MzgsImV4cCI6MjA5MTU1ODczOH0.WRNMSOpi_OAbh0l36qHQQpRABQe2pfzJTsDIGXIw21Y';
+var supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ============================================================
+// 매핑 저장/불러오기 (Supabase + localStorage 백업)
+// ============================================================
+function saveLM(){
+  // localStorage 백업
+  try{ localStorage.setItem('millimood_lm', JSON.stringify(learnedMap)); }catch(e){}
+  // Supabase 저장
+  supa.from('inventory_state').upsert(
+    {key:'learned_map', value:JSON.stringify(learnedMap)},
+    {onConflict:'key'}
+  ).then(function(){
+    showSync('🧠 매핑 학습 저장됨', '#3b82f6');
+  }).catch(function(){ /* 오프라인 무시 */ });
+}
+
+function loadLMCloud(){
+  // Supabase에서 매핑 불러오기
+  supa.from('inventory_state').select('value').eq('key','learned_map').single()
+    .then(function(res){
+      if(res.data && res.data.value){
+        var remote = JSON.parse(res.data.value);
+        // 로컬과 병합 (원격 우선)
+        learnedMap = Object.assign({}, learnedMap, remote);
+        try{ localStorage.setItem('millimood_lm', JSON.stringify(learnedMap)); }catch(e){}
+        showSync('🧠 매핑 '+Object.keys(learnedMap).length+'개 로드됨', '#3b82f6');
+      }
+    }).catch(function(){ /* 오프라인 시 localStorage 사용 */ });
+}
+
+// ============================================================
+// 매핑 관리 UI
+// ============================================================
+function openMappingMgr(){
+  renderMappingList();
+  document.getElementById('mappingModal').classList.add('open');
+}
+function closeMappingMgr(){
+  document.getElementById('mappingModal').classList.remove('open');
+}
+
+function renderMappingList(){
+  var keys = Object.keys(learnedMap);
+  var body = document.getElementById('mappingBody');
+  var empty = document.getElementById('mappingEmpty');
+  if(!keys.length){
+    body.innerHTML=''; empty.style.display='block'; return;
+  }
+  empty.style.display='none';
+  // 키 목록을 전역에 저장해서 index로 접근 (따옴표 이스케이프 문제 회피)
+  window._mappingKeys = keys;
+  body.innerHTML = keys.map(function(optKey, i){
+    var m = learnedMap[optKey];
+    return '<tr style="border-bottom:1px solid #f1f5f9">'
+      +'<td style="padding:8px 10px;font-size:11px;color:#475569;max-width:180px;word-break:break-all">'+optKey+'</td>'
+      +'<td style="padding:8px 10px">'
+        +'<select style="font-size:11px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:6px;max-width:200px" '
+          +'onchange="updateMappingByIdx('+i+',this.value)">'
+          +buildOpts(m)
+        +'</select>'
+      +'</td>'
+      +'<td style="text-align:center;padding:8px">'
+        +'<button onclick="deleteMappingByIdx('+i+')" '
+          +'style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>'
+      +'</td></tr>';
+  }).join('');
+}
+
+function updateMappingByIdx(i, val){
+  if(!val || !window._mappingKeys) return;
+  var optKey = window._mappingKeys[i];
+  var p = val.split('|').map(Number);
+  learnedMap[optKey] = {pi:p[0], fi:p[1], si:p[2], ci:p[3]};
+  saveLM();
+}
+
+function deleteMappingByIdx(i){
+  if(!window._mappingKeys) return;
+  var optKey = window._mappingKeys[i];
+  delete learnedMap[optKey];
+  window._mappingKeys.splice(i, 1);
+  saveLM();
+  renderMappingList();
+}
+
+function clearAllMapping(){
+  if(!confirm('저장된 매핑 '+Object.keys(learnedMap).length+'개를 모두 삭제하시겠습니까?')) return;
+  learnedMap = {};
+  saveLM();
+  renderMappingList();
+}
+
+function showSync(msg, color){
+  var el = document.getElementById('syncStatus');
+  if(!el) return;
+  el.textContent = msg; el.style.background = color; el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.style.opacity = '0'; }, 2500);
+}
 
 function exportCfg(){
   autoSave();
@@ -902,6 +1033,8 @@ buildTable();
 // unpaidInput 복원
 var _ui=document.getElementById('unpaidInput');
 if(_ui && state.unpaidAmt) _ui.value=state.unpaidAmt;
+// Supabase에서 매핑 불러오기 (비동기 — 페이지 로드 후 백그라운드)
+loadLMCloud();
 
 </script>
 </body>
