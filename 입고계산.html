@@ -99,39 +99,22 @@
 <body>
 <div class="wrap">
 
-  <!-- 1단계: 판매량 파일 (선택사항) -->
-  <div class="guide guide-orange" style="margin-bottom:12px">
-    <strong>📋 1단계 (선택):</strong>
-    판매량 파일을 먼저 올리면 <strong>일평균 × 14일(2주 목표)</strong> 기반 입고 필요 수량까지 계산됩니다.
-    재고현황 파일만 올려도 현재 재고 조회는 바로 가능합니다.
-  </div>
-
-  <div class="sales-upload-wrap">
-    <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start">
-      <div class="upload-card" id="salesDropzone"
-           onclick="if(!this.classList.contains('done'))document.getElementById('salesFileInput').click()"
-           ondragover="onSalesDragOver(event)" ondragleave="onSalesDragLeave(event)" ondrop="onSalesDrop(event)">
-        <input type="file" id="salesFileInput" accept=".xlsx,.xls,.csv" onchange="onSalesFileChange(event)"/>
-        <div class="ico">📈</div>
-        <h2 id="salesUploadTitle">【선택】 판매량 파일 업로드</h2>
-        <p>쿠팡 Wing → 통계 → 상품별 판매량 → 엑셀 다운로드</p>
-      </div>
-      <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:14px 16px;min-width:180px">
-        <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:8px">⏱ 다운받은 기간</div>
-        <div class="period-btns">
-          <button class="pbtn" onclick="setSalesPeriod(30,this)">30일</button>
-          <button class="pbtn" onclick="setSalesPeriod(60,this)">60일</button>
-          <button class="pbtn active" onclick="setSalesPeriod(90,this)">90일</button>
-        </div>
-        <div style="font-size:10px;color:#94a3b8" id="salesPeriodNote">기준: 90일</div>
-      </div>
+  <!-- 판매량 연동 상태 -->
+  <div id="salesLinkedBanner" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div>
+      <span style="font-size:13px;font-weight:700;color:#15803d">✅ 판매량 분석 데이터 연동됨</span>
+      <span style="font-size:11px;color:#64748b;margin-left:8px" id="salesLinkedInfo"></span>
     </div>
+    <button onclick="clearSalesData()" style="font-size:11px;padding:4px 10px;border:1px solid #bbf7d0;border-radius:6px;background:#fff;color:#64748b;cursor:pointer">연동 해제</button>
+  </div>
+  <div id="salesNoDataBanner" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#64748b">
+    💡 <strong>판매량 분석</strong> 탭에서 판매량 파일을 분석하면 입고 필요 수량이 자동으로 계산됩니다.
   </div>
 
-  <!-- 2단계: 재고현황 파일 -->
+  <!-- 재고현황 파일 -->
   <div class="guide guide-blue" style="margin-bottom:12px">
-    <strong>📋 2단계:</strong>
-    현재 재고현황 파일을 업로드하면 옵션별 재고 현황을 확인하고, 판매량 데이터가 있으면 입고 필요 수량까지 자동 계산합니다.
+    <strong>📋 재고현황 파일 업로드:</strong>
+    쿠팡 재고현황 파일을 올리면 현재 재고를 확인하고, 판매량 데이터가 있으면 입고 필요 수량까지 자동 계산합니다.
   </div>
 
   <div class="stock-top-row">
@@ -200,62 +183,35 @@
 
 <script>
 // ── 전역
-let analyzed = [];  // 판매량 분석 데이터 (선택사항)
-let salesDays = 90;
-let rawData = [], stockRawData = [], stockHeaders = [], stockAnalyzed = [], stockShown = [];
+let analyzed = [];  // 판매량 분석 데이터 (localStorage에서 자동 로드)
+let stockRawData = [], stockHeaders = [], stockAnalyzed = [], stockShown = [];
 let stockSrch = '', stockFilt = 'all', stockSrt = {key:'needed', asc:false};
 
-// ── 판매량 파일 업로드 (선택)
-function onSalesDragOver(e){e.preventDefault();document.getElementById('salesDropzone').classList.add('over')}
-function onSalesDragLeave(){document.getElementById('salesDropzone').classList.remove('over')}
-function onSalesDrop(e){e.preventDefault();onSalesDragLeave();const f=e.dataTransfer.files[0];if(f)loadSalesFile(f)}
-function onSalesFileChange(e){if(e.target.files[0])loadSalesFile(e.target.files[0])}
-
-function setSalesPeriod(d, btn){
-  salesDays = d;
-  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('salesPeriodNote').textContent = '기준: '+d+'일';
-  if(rawData.length) analyzeSales();
+// ── 판매량 분석 데이터 localStorage에서 자동 로드
+function loadSalesFromStorage(){
+  try{
+    const raw = localStorage.getItem('millimood_sales_analyzed');
+    if(!raw) return false;
+    const saved = JSON.parse(raw);
+    analyzed = saved.data || [];
+    if(!analyzed.length) return false;
+    // 연동 배너 표시
+    const d = new Date(saved.savedAt);
+    const timeStr = (d.getMonth()+1)+'/'+(d.getDate())+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    document.getElementById('salesLinkedBanner').style.display='flex';
+    document.getElementById('salesNoDataBanner').style.display='none';
+    document.getElementById('salesLinkedInfo').textContent =
+      analyzed.length+'개 옵션 · '+saved.days+'일 기준 · '+timeStr+' 분석';
+    return true;
+  }catch(e){ return false; }
 }
 
-function loadSalesFile(file){
-  const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-    if(rows.length < 2){alert('데이터가 없습니다.');return;}
-    let hIdx=0, maxC=0;
-    for(let i=0;i<Math.min(10,rows.length);i++){
-      const c=rows[i].filter(v=>String(v).trim()!=='').length;
-      if(c>maxC){maxC=c;hIdx=i;}
-    }
-    const hdrs = rows[hIdx].map(h=>String(h).trim());
-    rawData = rows.slice(hIdx+1).filter(r=>r.some(v=>String(v).trim()!==''));
-    window.SCOL = {
-      optId: findCol(hdrs,['옵션ID','옵션 ID']),
-      opt:   findCol(hdrs,['옵션명']),
-      type:  findCol(hdrs,['판매방식']),
-      qty:   findCol(hdrs,['판매량']),
-    };
-    const rg = rawData.filter(r=>String(r[SCOL.type]).includes('로켓그로스')).length;
-    document.getElementById('salesUploadTitle').textContent = `✅ ${file.name} · 로켓그로스 ${rg}개`;
-    document.getElementById('salesDropzone').classList.add('done');
-    analyzeSales();
-    if(stockRawData.length) runStockCalc();
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function analyzeSales(){
-  const rg = rawData.filter(r=>String(r[SCOL.type]).includes('로켓그로스'));
-  analyzed = rg.map(r=>{
-    const optId = String(r[SCOL.optId]||'').trim();
-    const opt   = String(r[SCOL.opt]||'').trim();
-    const actual = parseFloat(String(r[SCOL.qty]||'0').replace(/,/g,''))||0;
-    return {optId, opt, actual, dayAvg: actual/salesDays};
-  }).filter(r=>r.opt);
+function clearSalesData(){
+  analyzed = [];
+  localStorage.removeItem('millimood_sales_analyzed');
+  document.getElementById('salesLinkedBanner').style.display='none';
+  document.getElementById('salesNoDataBanner').style.display='block';
+  if(stockRawData.length) runStockCalc();
 }
 
 function findCol(hdrs, keys){
@@ -453,6 +409,8 @@ function resetStock(){
   document.getElementById('stockMapCard').style.display='none';
   document.getElementById('stockFileInput').value='';
 }
+// 페이지 로드 시 판매량 데이터 자동 연동
+loadSalesFromStorage();
 </script>
 </body>
 </html>

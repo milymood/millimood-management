@@ -216,6 +216,14 @@ function analyze(){
   }).filter(r=>r.opt);
   renderInfo(); renderStats(); applyFilter();
   document.getElementById('resultArea').style.display='block';
+  // 입고계산 탭에서 사용할 수 있도록 localStorage에 저장
+  try{
+    localStorage.setItem('millimood_sales_analyzed', JSON.stringify({
+      days: days,
+      savedAt: new Date().toISOString(),
+      data: analyzed.map(r=>({optId:r.optId, opt:r.opt, dayAvg:r.dayAvg}))
+    }));
+  }catch(e){}
 }
 
 function renderInfo(){
@@ -224,7 +232,8 @@ function renderInfo(){
     <span class="info-chip ic-orange">🚀 로켓그로스 ${rg}개 옵션</span>
     <span class="info-chip ic-green">판매 발생 ${sold}개</span>
     <span class="info-chip ic-blue">기준 기간 ${days}일</span>
-    <span class="info-chip ic-gray">일평균 × 30/60/90 추산</span>`;
+    <span class="info-chip ic-gray">일평균 × 30/60/90 추산</span>
+    <span class="info-chip ic-green">✅ 입고 계산 탭에서 재고파일 올리면 입고 필요 수량 자동 계산</span>`;
 }
 
 function renderStats(){
